@@ -18,6 +18,7 @@ import { GoogleMapsAntennasView } from './components/GoogleMapsAntennasView';
 import { LabelsManagementView } from './components/LabelsManagementView';
 import { ReportsView } from './components/ReportsView';
 import { ArchitectureView } from './components/ArchitectureView';
+import { PdfAnalysisResultsView } from './components/PdfAnalysisResultsView';
 import { QuickLabelModal } from './components/QuickLabelModal';
 import { NewCaseModal } from './components/NewCaseModal';
 
@@ -34,6 +35,13 @@ export default function App() {
   const [focusedTowerIdForMap, setFocusedTowerIdForMap] = useState<string | undefined>(undefined);
   const [quickLabelPhone, setQuickLabelPhone] = useState<string | null>(null);
   const [isNewCaseModalOpen, setIsNewCaseModalOpen] = useState(false);
+  const [gmpQuotaExceeded, setGmpQuotaExceeded] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setGmpQuotaExceeded(true);
+    window.addEventListener('gmp-quota-exceeded', handler);
+    return () => window.removeEventListener('gmp-quota-exceeded', handler);
+  }, []);
 
   // Caso activo
   const activeCase = cases.find(c => c.id === activeCaseId) || cases[0];
@@ -88,6 +96,7 @@ export default function App() {
     panel: 'Panel General',
     expedientes: 'Expedientes UECS',
     importar: 'Importar Sábanas',
+    'vinculos-pdf': 'Resultados de PDFs (UAYC / i2)',
     registros: 'Explorador Forense',
     numero: 'Análisis por Número',
     comparador: 'Cruce & Co-localización',
@@ -99,6 +108,24 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
+      {/* Banner de Aviso de Cuota de Google Maps Platform */}
+      {gmpQuotaExceeded && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
+          <span>
+            Google Maps Platform quota reached. If you are the app owner, visit{' '}
+            <a
+              href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-semibold text-amber-950 hover:text-amber-800"
+            >
+              maps developer site
+            </a>{' '}
+            for instructions to update your account.
+          </span>
+        </div>
+      )}
+
       {/* Barra Superior Institucional (Top Bar Contract) */}
       <TopBar
         activeCase={activeCase}
@@ -145,6 +172,16 @@ export default function App() {
               onImportComplete={(count) => {
                 setRecords(storageService.getRecords(activeCaseId));
                 setCurrentTab('registros');
+              }}
+            />
+          )}
+
+          {currentTab === 'vinculos-pdf' && (
+            <PdfAnalysisResultsView
+              onNavigateToNumberAnalysis={handleNavigateToNumberAnalysis}
+              onNavigateToMap={(phone) => {
+                setSelectedNumberForAnalysis(phone);
+                setCurrentTab('mapa');
               }}
             />
           )}
