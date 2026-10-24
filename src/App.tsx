@@ -14,14 +14,17 @@ import { ImportWizardView } from './components/ImportWizardView';
 import { RecordsExplorerView } from './components/RecordsExplorerView';
 import { NumberAnalysisView } from './components/NumberAnalysisView';
 import { ComparatorView } from './components/ComparatorView';
+import { NetworkGraphView } from './components/NetworkGraphView';
 import { GoogleMapsAntennasView } from './components/GoogleMapsAntennasView';
 import { LabelsManagementView } from './components/LabelsManagementView';
 import { ReportsView } from './components/ReportsView';
 import { ArchitectureView } from './components/ArchitectureView';
 import { QuickLabelModal } from './components/QuickLabelModal';
 import { NewCaseModal } from './components/NewCaseModal';
+import { ThemeProvider, useAppTheme } from './context/ThemeContext';
 
-export default function App() {
+function AppContent() {
+  const { theme, themeConfig } = useAppTheme();
   const [currentTab, setCurrentTab] = useState<NavTabId>('panel');
   const [cases, setCases] = useState<InvestigationCase[]>(() => storageService.getCases());
   const [activeCaseId, setActiveCaseId] = useState<string>(() => storageService.getActiveCaseId());
@@ -91,6 +94,7 @@ export default function App() {
     registros: 'Explorador Forense',
     numero: 'Análisis por Número',
     comparador: 'Cruce & Co-localización',
+    vinculos: 'Red de Vínculos (Grafo Táctico)',
     mapa: 'Mapa de Antenas (Google Maps)',
     etiquetas: 'Etiquetado Manual',
     reportes: 'Dictámenes Periciales',
@@ -98,7 +102,13 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
+    <div 
+      className="flex flex-col h-screen w-screen overflow-hidden transition-colors duration-200"
+      style={{
+        backgroundColor: themeConfig.bgMain,
+        color: themeConfig.textPrimary
+      }}
+    >
       {/* Barra Superior Institucional (Top Bar Contract) */}
       <TopBar
         activeCase={activeCase}
@@ -118,7 +128,10 @@ export default function App() {
         />
 
         {/* Viewport de Contenido */}
-        <main className="flex-1 overflow-y-auto bg-slate-950">
+        <main 
+          className="flex-1 overflow-y-auto transition-colors duration-200"
+          style={{ backgroundColor: themeConfig.bgMain }}
+        >
           {currentTab === 'panel' && (
             <DashboardView
               activeCase={activeCase}
@@ -183,6 +196,16 @@ export default function App() {
             />
           )}
 
+          {currentTab === 'vinculos' && (
+            <NetworkGraphView
+              records={records}
+              labels={labels}
+              activeCase={activeCase}
+              onOpenLabelModal={(phone) => setQuickLabelPhone(phone)}
+              onNavigateToNumberAnalysis={handleNavigateToNumberAnalysis}
+            />
+          )}
+
           {currentTab === 'mapa' && (
             <GoogleMapsAntennasView
               towers={towers}
@@ -238,5 +261,13 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
