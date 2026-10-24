@@ -182,53 +182,53 @@ export const PdfAnalysisResultsView: React.FC<PdfAnalysisResultsViewProps> = ({
       </div>
 
       {/* Navegación por Pestañas Internas */}
-      <div className="flex border-b border-slate-800 text-xs font-semibold gap-1">
+      <div className="flex border-b border-slate-800 text-xs font-semibold gap-1 overflow-x-auto whitespace-nowrap pb-1 scrollbar-thin">
         <button
           onClick={() => setActiveSubTab('grafo')}
-          className={`flex items-center gap-2 px-4 py-2.5 border-b-2 transition-colors ${
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
             activeSubTab === 'grafo'
               ? 'border-blue-500 text-white bg-slate-900/40'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/20'
           }`}
         >
           <Network className="w-4 h-4 text-blue-400" />
-          <span>Red de Vínculos Forense (Grafo Interactivo)</span>
+          <span>Red de Vínculos Forense (Grafo)</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('matriz')}
-          className={`flex items-center gap-2 px-4 py-2.5 border-b-2 transition-colors ${
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
             activeSubTab === 'matriz'
               ? 'border-blue-500 text-white bg-slate-900/40'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/20'
           }`}
         >
           <Layers className="w-4 h-4 text-emerald-400" />
-          <span>Matriz de Eventos y Llamadas ({allEvents.length})</span>
+          <span>Matriz de Eventos ({allEvents.length})</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('datos_lte')}
-          className={`flex items-center gap-2 px-4 py-2.5 border-b-2 transition-colors ${
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
             activeSubTab === 'datos_lte'
               ? 'border-blue-500 text-white bg-slate-900/40'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/20'
           }`}
         >
           <Radio className="w-4 h-4 text-purple-400" />
-          <span>Tráfico de Datos & Sesiones IP (i2)</span>
+          <span>Tráfico de Datos IP (i2)</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('visor_pdf')}
-          className={`flex items-center gap-2 px-4 py-2.5 border-b-2 transition-colors ${
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-colors shrink-0 ${
             activeSubTab === 'visor_pdf'
               ? 'border-blue-500 text-white bg-slate-900/40'
               : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/20'
           }`}
         >
           <FileText className="w-4 h-4 text-amber-400" />
-          <span>Visor de Documentos PDF Originales</span>
+          <span>Visor de Documentos PDF</span>
         </button>
       </div>
 
@@ -239,7 +239,7 @@ export const PdfAnalysisResultsView: React.FC<PdfAnalysisResultsViewProps> = ({
         <div className="space-y-6">
           {/* Simbología Pericial Oficial (como en el PDF) */}
           <div className="bg-slate-900/80 border border-slate-800 p-3.5 rounded flex flex-wrap items-center justify-between gap-4 text-xs">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <span className="font-bold text-white uppercase text-[11px] tracking-wider">
                 Simbología Oficial UAYC:
               </span>
@@ -264,24 +264,28 @@ export const PdfAnalysisResultsView: React.FC<PdfAnalysisResultsViewProps> = ({
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Diagrama Visual de Red de Vínculos */}
-            <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-lg p-5 flex flex-col justify-between min-h-[560px] relative">
+            <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-lg p-3 sm:p-5 flex flex-col justify-between min-h-[520px] relative">
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <Network className="w-4 h-4 text-blue-400" />
                     <span>Topología Gráfica de Comunicaciones</span>
                   </h3>
-                  <span className="text-[11px] text-slate-300">
+                  <span className="text-[11px] text-slate-300 block">
                     Haz clic en cualquier nodo para inspeccionar sus eventos y bitácora pericial
                   </span>
+                  <span className="md:hidden text-[10px] text-blue-400 font-mono mt-0.5 block">
+                    ↔ Desliza horizontalmente si la pantalla es estrecha
+                  </span>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                  Modelo UAYC A07
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                  UAYC A07
                 </span>
               </div>
 
-              {/* Contenedor Gráfico Interactivo de Nodos */}
-              <div className="flex-1 my-4 flex items-center justify-between relative bg-slate-950/70 border border-slate-800/80 rounded-lg p-4 overflow-hidden">
+              {/* Contenedor Gráfico Interactivo de Nodos con Scroll Touch */}
+              <div className="flex-1 my-3 relative bg-slate-950/70 border border-slate-800/80 rounded-lg p-3 sm:p-4 overflow-x-auto">
+                <div className="flex items-center justify-between min-w-[560px] gap-4 w-full">
                 {/* Columna Izquierda: Nodos Salientes y Clave */}
                 <div className="flex flex-col gap-2.5 z-10 w-44">
                   <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider mb-1 flex items-center gap-1">
@@ -369,8 +373,9 @@ export const PdfAnalysisResultsView: React.FC<PdfAnalysisResultsViewProps> = ({
                   })}
                 </div>
               </div>
+            </div>
 
-              {/* Pie de Diagrama */}
+            {/* Pie de Diagrama */}
               <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-800 pt-3">
                 <span>Diagrama generado según estándar ministerial de la UAYC</span>
                 <span className="font-mono text-slate-400">Página 1 de 1 · Expediente UECS</span>
@@ -746,21 +751,28 @@ export const PdfAnalysisResultsView: React.FC<PdfAnalysisResultsViewProps> = ({
           </div>
 
           {/* Información del PDF seleccionado */}
-          <div className="bg-slate-950 border border-slate-800/80 p-3.5 rounded flex items-center justify-between text-xs">
-            <div className="flex items-center gap-3">
+          <div className="bg-slate-950 border border-slate-800/80 p-3 sm:p-3.5 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <span className="font-bold text-white">{activePdfDoc.title}</span>
-              <span className="text-slate-300 font-mono">({activePdfDoc.fileName})</span>
+              <span className="text-slate-400 font-mono text-[11px]">({activePdfDoc.fileName})</span>
               <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-mono">
                 {activePdfDoc.unit}
               </span>
             </div>
-            <span className="text-slate-300 text-[11px] font-mono">
-              Ruta en servidor: {activePdfDoc.path}
-            </span>
+            <div className="flex items-center gap-2">
+              <a
+                href={activePdfDoc.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-blue-400 hover:text-blue-300 underline font-mono sm:hidden"
+              >
+                Abrir PDF en pantalla completa ↗
+              </a>
+            </div>
           </div>
 
           {/* Visor IFrame Embebido */}
-          <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-2xl h-[700px] relative">
+          <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-2xl h-[480px] sm:h-[620px] md:h-[720px] relative">
             <iframe
               src={activePdfDoc.path}
               title={activePdfDoc.title}

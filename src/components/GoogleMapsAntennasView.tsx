@@ -819,9 +819,9 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
           </div>
         )}
 
-        {/* Panel Lateral Desplegable: Detalle Forense de la Antena Seleccionada */}
+        {/* Panel Lateral / Bottom Sheet Desplegable: Detalle Forense de la Antena Seleccionada */}
         {selectedTower && (
-          <aside className="w-80 md:w-96 bg-slate-900 border-l border-slate-800 flex flex-col justify-between shrink-0 shadow-2xl z-30 overflow-hidden">
+          <aside className="fixed inset-x-0 bottom-14 md:bottom-0 max-h-[75vh] md:max-h-none md:static md:w-80 lg:w-96 bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col justify-between shrink-0 shadow-2xl z-30 overflow-hidden rounded-t-xl md:rounded-none">
             <div className="p-4 border-b border-slate-800 flex items-start justify-between bg-slate-950/80">
               <div>
                 <div className="flex items-center gap-2 mb-1">

@@ -21,6 +21,7 @@ import { ArchitectureView } from './components/ArchitectureView';
 import { PdfAnalysisResultsView } from './components/PdfAnalysisResultsView';
 import { QuickLabelModal } from './components/QuickLabelModal';
 import { NewCaseModal } from './components/NewCaseModal';
+import { LayoutDashboard, Network, MapPin, Table, Menu } from 'lucide-react';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<NavTabId>('panel');
@@ -29,6 +30,7 @@ export default function App() {
   const [towers, setTowers] = useState<CellTower[]>(() => storageService.getTowers());
   const [labels, setLabels] = useState<PhoneLabel[]>(() => storageService.getLabels());
   const [records, setRecords] = useState<CallDetailRecord[]>(() => storageService.getRecords(activeCaseId));
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Navegación contextual
   const [selectedNumberForAnalysis, setSelectedNumberForAnalysis] = useState<string>('656-789-2041');
@@ -131,6 +133,7 @@ export default function App() {
         activeCase={activeCase}
         activeTabTitle={tabTitles[currentTab]}
         onOpenReportModal={() => setCurrentTab('reportes')}
+        onToggleSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
       />
 
       {/* Cuerpo Principal con Sidebar y Viewport */}
@@ -142,10 +145,12 @@ export default function App() {
           activeCaseId={activeCaseId}
           onSelectCase={handleSelectCase}
           totalRecords={records.length}
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
 
         {/* Viewport de Contenido */}
-        <main className="flex-1 overflow-y-auto bg-slate-950">
+        <main className="flex-1 overflow-y-auto bg-slate-950 pb-16 md:pb-0">
           {currentTab === 'panel' && (
             <DashboardView
               activeCase={activeCase}
@@ -274,6 +279,69 @@ export default function App() {
           onSaveCase={handleSaveCase}
         />
       )}
+
+      {/* Barra de Navegación Rápida Inferior para Móviles */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-slate-950/95 border-t border-slate-800 backdrop-blur flex items-center justify-around py-1.5 px-2 shadow-2xl">
+        <button
+          onClick={() => {
+            setCurrentTab('panel');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center p-1 rounded transition-colors ${
+            currentTab === 'panel' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Panel</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentTab('vinculos-pdf');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center p-1 rounded transition-colors ${
+            currentTab === 'vinculos-pdf' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Network className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">PDFs</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentTab('mapa');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center p-1 rounded transition-colors ${
+            currentTab === 'mapa' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <MapPin className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Mapa</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentTab('registros');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center p-1 rounded transition-colors ${
+            currentTab === 'registros' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Table className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Sábanas</span>
+        </button>
+
+        <button
+          onClick={() => setIsMobileSidebarOpen(true)}
+          className="flex flex-col items-center justify-center p-1 rounded text-slate-400 hover:text-slate-200 transition-colors"
+        >
+          <Menu className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Menú</span>
+        </button>
+      </nav>
     </div>
   );
 }

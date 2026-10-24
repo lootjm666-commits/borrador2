@@ -74,8 +74,8 @@ export const QuickLabelModal: React.FC<QuickLabelModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-lg max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-800 rounded-lg max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto my-auto">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <Tags className="w-4 h-4 text-blue-400" />
@@ -83,7 +83,7 @@ export const QuickLabelModal: React.FC<QuickLabelModalProps> = ({
               Etiquetar Línea Telefónica
             </h2>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">✕</button>
         </div>
 
         <div className="p-2.5 rounded bg-slate-950 border border-slate-800 font-mono text-xs flex items-center justify-between">

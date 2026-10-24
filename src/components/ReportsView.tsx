@@ -72,9 +72,9 @@ Fiscalía de Distrito Zona Norte - Cd. Juárez
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 max-w-5xl mx-auto">
       {/* Controles de Vista de Reporte */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800 print:hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-slate-800 print:hidden">
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
             <FileText className="w-5 h-5 text-blue-400" />
@@ -91,7 +91,7 @@ Fiscalía de Distrito Zona Norte - Cd. Juárez
             className="px-3.5 py-2 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded flex items-center gap-1.5 transition-colors"
           >
             <Printer className="w-4 h-4" />
-            <span>Imprimir / PDF</span>
+            <span>Imprimir</span>
           </button>
           <button
             disabled={isExporting}
@@ -99,13 +99,13 @@ Fiscalía de Distrito Zona Norte - Cd. Juárez
             className="px-4 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-600 rounded flex items-center gap-1.5 transition-colors shadow-sm"
           >
             <Download className="w-4 h-4" />
-            <span>{isExporting ? 'Descargando...' : 'Descargar Dictamen (.doc)'}</span>
+            <span>{isExporting ? 'Descargando...' : 'Descargar (.doc)'}</span>
           </button>
         </div>
       </div>
 
       {/* Hoja de Dictamen Oficial Estructurado */}
-      <div className="bg-slate-900 border border-slate-800 rounded p-8 text-slate-200 space-y-6 shadow-xl print:bg-white print:text-black print:border-none print:shadow-none">
+      <div className="bg-slate-900 border border-slate-800 rounded p-4 sm:p-8 text-slate-200 space-y-6 shadow-xl print:bg-white print:text-black print:border-none print:shadow-none">
         {/* Cabecera Institucional con Emblema Buhue */}
         <div className="border-b-2 border-slate-700 pb-5 flex items-start justify-between">
           <div className="flex items-center gap-4">
