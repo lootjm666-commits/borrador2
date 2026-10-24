@@ -1,0 +1,6 @@
+{
+  "name": "ANTISEC | Análisis Telefónico",
+  "description": "Plataforma institucional de análisis de sábanas telefónicas, cruce de celdas celulares, trazado de rutas de interés y etiquetado forense para unidades de combate al secuestro.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
