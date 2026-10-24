@@ -58,7 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'registros' as NavTabId, label: 'Explorador Forense', icon: Table, count: totalRecords },
     { id: 'numero' as NavTabId, label: 'Análisis por Número', icon: PhoneCall },
     { id: 'comparador' as NavTabId, label: 'Cruce & Co-localización', icon: GitCompare },
-    { id: 'mapa' as NavTabId, label: 'Mapa de Antenas', icon: MapPin, hint: 'Google Maps' },
+    { id: 'mapa' as NavTabId, label: 'Mapa de Antenas', icon: MapPin, hint: 'Leaflet / Satelital' },
     { id: 'etiquetas' as NavTabId, label: 'Etiquetado Manual', icon: Tags },
     { id: 'reportes' as NavTabId, label: 'Dictámenes Periciales', icon: FileText },
     { id: 'arquitectura' as NavTabId, label: 'Arquitectura & Firestore', icon: Layers }
