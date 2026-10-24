@@ -19,6 +19,7 @@ import { GoogleMapsAntennasView } from './components/GoogleMapsAntennasView';
 import { LabelsManagementView } from './components/LabelsManagementView';
 import { ReportsView } from './components/ReportsView';
 import { ArchitectureView } from './components/ArchitectureView';
+import { PdfAnalysisResultsView } from './components/PdfAnalysisResultsView';
 import { QuickLabelModal } from './components/QuickLabelModal';
 import { NewCaseModal } from './components/NewCaseModal';
 import { ThemeProvider, useAppTheme } from './context/ThemeContext';
@@ -31,12 +32,20 @@ function AppContent() {
   const [towers, setTowers] = useState<CellTower[]>(() => storageService.getTowers());
   const [labels, setLabels] = useState<PhoneLabel[]>(() => storageService.getLabels());
   const [records, setRecords] = useState<CallDetailRecord[]>(() => storageService.getRecords(activeCaseId));
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Navegación contextual
   const [selectedNumberForAnalysis, setSelectedNumberForAnalysis] = useState<string>('656-789-2041');
   const [focusedTowerIdForMap, setFocusedTowerIdForMap] = useState<string | undefined>(undefined);
   const [quickLabelPhone, setQuickLabelPhone] = useState<string | null>(null);
   const [isNewCaseModalOpen, setIsNewCaseModalOpen] = useState(false);
+  const [gmpQuotaExceeded, setGmpQuotaExceeded] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setGmpQuotaExceeded(true);
+    window.addEventListener('gmp-quota-exceeded', handler);
+    return () => window.removeEventListener('gmp-quota-exceeded', handler);
+  }, []);
 
   // Caso activo
   const activeCase = cases.find(c => c.id === activeCaseId) || cases[0];
@@ -91,6 +100,7 @@ function AppContent() {
     panel: 'Panel General',
     expedientes: 'Expedientes UECS',
     importar: 'Importar Sábanas',
+    'vinculos-pdf': 'Resultados de PDFs (UAYC / i2)',
     registros: 'Explorador Forense',
     numero: 'Análisis por Número',
     comparador: 'Cruce & Co-localización',
@@ -114,6 +124,7 @@ function AppContent() {
         activeCase={activeCase}
         activeTabTitle={tabTitles[currentTab]}
         onOpenReportModal={() => setCurrentTab('reportes')}
+        onToggleSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
       />
 
       {/* Cuerpo Principal con Sidebar y Viewport */}
@@ -125,6 +136,8 @@ function AppContent() {
           activeCaseId={activeCaseId}
           onSelectCase={handleSelectCase}
           totalRecords={records.length}
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
 
         {/* Viewport de Contenido */}
@@ -158,6 +171,16 @@ function AppContent() {
               onImportComplete={(count) => {
                 setRecords(storageService.getRecords(activeCaseId));
                 setCurrentTab('registros');
+              }}
+            />
+          )}
+
+          {currentTab === 'vinculos-pdf' && (
+            <PdfAnalysisResultsView
+              onNavigateToNumberAnalysis={handleNavigateToNumberAnalysis}
+              onNavigateToMap={(phone) => {
+                setSelectedNumberForAnalysis(phone);
+                setCurrentTab('mapa');
               }}
             />
           )}
@@ -260,6 +283,69 @@ function AppContent() {
           onSaveCase={handleSaveCase}
         />
       )}
+
+      {/* Barra de Navegación Rápida Inferior para Móviles */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-slate-950/95 border-t border-slate-800 backdrop-blur flex items-center justify-around py-1.5 px-2 shadow-2xl">
+        <button
+          onClick={() => {
+            setCurrentTab('panel');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center p-1 rounded transition-colors ${
+            currentTab === 'panel' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Panel</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentTab('vinculos-pdf');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center p-1 rounded transition-colors ${
+            currentTab === 'vinculos-pdf' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Network className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">PDFs</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentTab('mapa');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center p-1 rounded transition-colors ${
+            currentTab === 'mapa' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <MapPin className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Mapa</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentTab('registros');
+            setIsMobileSidebarOpen(false);
+          }}
+          className={`flex flex-col items-center justify-center p-1 rounded transition-colors ${
+            currentTab === 'registros' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Table className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Sábanas</span>
+        </button>
+
+        <button
+          onClick={() => setIsMobileSidebarOpen(true)}
+          className="flex flex-col items-center justify-center p-1 rounded text-slate-400 hover:text-slate-200 transition-colors"
+        >
+          <Menu className="w-4 h-4" />
+          <span className="text-[10px] mt-0.5">Menú</span>
+        </button>
+      </nav>
     </div>
   );
 }

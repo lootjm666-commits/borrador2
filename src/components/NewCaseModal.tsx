@@ -47,8 +47,8 @@ export const NewCaseModal: React.FC<NewCaseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-lg max-w-lg w-full p-6 space-y-4 shadow-2xl">
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-800 rounded-lg max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto my-auto">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <FolderLock className="w-4 h-4 text-blue-400" />
@@ -56,11 +56,11 @@ export const NewCaseModal: React.FC<NewCaseModalProps> = ({
               Abrir Nueva Carpeta de Investigación UECS
             </h2>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">✕</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-400 mb-1 font-mono uppercase text-[10px]">
                 Número de Carpeta
@@ -106,7 +106,7 @@ export const NewCaseModal: React.FC<NewCaseModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-400 mb-1 font-mono uppercase text-[10px]">
                 Número Objetivo Principal

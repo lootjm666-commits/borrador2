@@ -110,7 +110,7 @@ export const ComparatorView: React.FC<ComparatorViewProps> = ({
   const label2 = labels.find(l => l.phoneNumber.replace(/\D/g, '') === phone2.replace(/\D/g, ''));
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Encabezado */}
       <div className="pb-4 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

@@ -95,12 +95,12 @@ export const LabelsManagementView: React.FC<LabelsManagementViewProps> = ({
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Encabezado */}
-      <div className="pb-4 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="pb-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Tags className="w-5 h-5 text-blue-400" />
+          <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            <Tags className="w-5 h-5 text-blue-400 shrink-0" />
             <span>Directorio de Etiquetado Manual de Números</span>
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -109,7 +109,7 @@ export const LabelsManagementView: React.FC<LabelsManagementViewProps> = ({
         </div>
         <button
           onClick={handleOpenCreate}
-          className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-600 rounded transition-colors whitespace-nowrap shrink-0 shadow-sm"
+          className="flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-600 rounded transition-colors whitespace-nowrap shrink-0 shadow-sm w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Etiquetar Nuevo Número</span>
@@ -204,8 +204,8 @@ export const LabelsManagementView: React.FC<LabelsManagementViewProps> = ({
 
       {/* Modal de Creación / Edición */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-lg max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-lg max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <Tags className="w-4 h-4 text-blue-400" />
@@ -213,7 +213,7 @@ export const LabelsManagementView: React.FC<LabelsManagementViewProps> = ({
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-white p-1"
               >
                 ✕
               </button>

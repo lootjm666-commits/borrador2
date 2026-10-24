@@ -115,47 +115,47 @@ Fiscalía General del Estado de Chihuahua
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Encabezado */}
-      <div className="pb-4 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="pb-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Importación y Normalización de Sábanas</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">Importación y Normalización de Sábanas</h1>
           <p className="text-xs text-slate-400 mt-1">
             Asistente modular para sábanas de Telcel, AT&T y Movistar + herramientas de conversión PDF
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>Filtro de integridad de columnas activo</span>
+        <div className="flex items-center gap-2 text-xs font-mono text-slate-400 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded self-start sm:self-auto">
+          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="truncate">Filtro de integridad de columnas activo</span>
         </div>
       </div>
 
       {/* Herramienta Especial de Conversión: PDF → Excel y PDF → Word */}
-      <div className="bg-slate-900 border border-slate-800 rounded p-5">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+      <div className="bg-slate-900 border border-slate-800 rounded p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-800 mb-4 gap-3">
           <div>
             <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 text-blue-400" />
+              <RefreshCw className="w-4 h-4 text-blue-400 shrink-0" />
               <span>Convertidor Forense de Sábanas (PDF → Excel / PDF → Word)</span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
               Convierte sábanas PDF oficiales entregadas por juzgados a tablas de datos editables o dictámenes periciales
             </p>
           </div>
-          <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded border border-slate-800">
+          <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded border border-slate-800 shrink-0">
             <button
               onClick={() => setConversionType('excel')}
-              className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${
+              className={`px-2.5 sm:px-3 py-1 text-xs font-semibold rounded transition-colors ${
                 conversionType === 'excel'
                   ? 'bg-blue-600 text-white'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              PDF → Excel (.csv / .xlsx)
+              PDF → Excel (.csv)
             </button>
             <button
               onClick={() => setConversionType('word')}
-              className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${
+              className={`px-2.5 sm:px-3 py-1 text-xs font-semibold rounded transition-colors ${
                 conversionType === 'word'
                   ? 'bg-blue-600 text-white'
                   : 'text-slate-400 hover:text-white'
@@ -179,7 +179,7 @@ Fiscalía General del Estado de Chihuahua
               </div>
             )}
           </div>
-          <div className="flex justify-end">
+          <div className="flex sm:justify-end">
             {conversionType === 'excel' ? (
               <button
                 onClick={handleDownloadExcelConversion}
@@ -202,17 +202,17 @@ Fiscalía General del Estado de Chihuahua
       </div>
 
       {/* Pasos del Asistente Modular */}
-      <div className="grid grid-cols-4 gap-2 text-xs font-mono">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
         {[
-          { step: 1, title: '1. Formato Operador' },
-          { step: 2, title: '2. Carga Archivo' },
-          { step: 3, title: '3. Mapeo Columnas' },
-          { step: 4, title: '4. Ingesta a Base' }
+          { step: 1, title: '1. Formato' },
+          { step: 2, title: '2. Carga' },
+          { step: 3, title: '3. Mapeo' },
+          { step: 4, title: '4. Ingesta' }
         ].map((s) => (
           <div
             key={s.step}
             onClick={() => s.step < currentStep && setCurrentStep(s.step as any)}
-            className={`p-2.5 text-center rounded border transition-colors ${
+            className={`p-2 sm:p-2.5 text-center rounded border transition-colors ${
               currentStep === s.step
                 ? 'bg-blue-950 text-blue-200 border-blue-600 font-bold'
                 : currentStep > s.step
@@ -227,7 +227,7 @@ Fiscalía General del Estado de Chihuahua
 
       {/* Contenido según el paso */}
       {currentStep === 1 && (
-        <div className="bg-slate-900 border border-slate-800 rounded p-6 space-y-5">
+        <div className="bg-slate-900 border border-slate-800 rounded p-4 sm:p-6 space-y-5">
           <div>
             <h2 className="text-sm font-semibold text-white">Paso 1: Seleccionar Formato del Operador</h2>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -277,8 +277,8 @@ Fiscalía General del Estado de Chihuahua
       )}
 
       {currentStep === 2 && (
-        <div className="bg-slate-900 border border-slate-800 rounded p-6 space-y-5">
-          <div className="flex items-center justify-between">
+        <div className="bg-slate-900 border border-slate-800 rounded p-4 sm:p-6 space-y-4 sm:space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold text-white">Paso 2: Cargar Archivo de Sábana</h2>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -287,19 +287,19 @@ Fiscalía General del Estado de Chihuahua
             </div>
             <button
               onClick={() => setCurrentStep(1)}
-              className="text-xs text-slate-400 hover:text-white"
+              className="text-xs text-slate-400 hover:text-white self-start sm:self-auto"
             >
-              Cambiar operador
+              ← Cambiar operador
             </button>
           </div>
 
           {/* Zona de Drag & Drop simulada */}
-          <div className="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded p-8 text-center bg-slate-950/60 transition-colors">
-            <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-            <p className="text-sm font-medium text-slate-200">
+          <div className="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded p-5 sm:p-8 text-center bg-slate-950/60 transition-colors">
+            <Upload className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400 mx-auto mb-3" />
+            <p className="text-xs sm:text-sm font-medium text-slate-200">
               Arrastra aquí el archivo de la sábana o haz clic para explorar
             </p>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-[11px] sm:text-xs text-slate-400 mt-1">
               Archivos aceptados: Excel (.xlsx, .xls), CSV (.csv), Texto delimitado (.txt) o PDF ministerial (.pdf)
             </p>
 
@@ -315,17 +315,17 @@ Fiscalía General del Estado de Chihuahua
           </div>
 
           {/* Archivo de muestra pre-cargado */}
-          <div className="bg-slate-950 border border-slate-800 p-3 rounded flex items-center justify-between text-xs">
+          <div className="bg-slate-950 border border-slate-800 p-3 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2.5">
-              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400 shrink-0" />
               <div>
-                <span className="font-mono text-white font-medium">{uploadedFileName}</span>
+                <span className="font-mono text-white font-medium break-all">{uploadedFileName}</span>
                 <span className="text-slate-400 text-[11px] block">4.8 MB · 1,420 registros calculados</span>
               </div>
             </div>
             <button
               onClick={() => setCurrentStep(3)}
-              className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-600 rounded transition-colors"
+              className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-600 rounded transition-colors text-center shrink-0"
             >
               Mapear Columnas →
             </button>
@@ -334,15 +334,15 @@ Fiscalía General del Estado de Chihuahua
       )}
 
       {currentStep === 3 && (
-        <div className="bg-slate-900 border border-slate-800 rounded p-6 space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="bg-slate-900 border border-slate-800 rounded p-4 sm:p-6 space-y-4 sm:space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-800 gap-2">
             <div>
               <h2 className="text-sm font-semibold text-white">Paso 3: Validación y Mapeo de Columnas</h2>
               <p className="text-xs text-slate-400">
                 Verifique que cada columna del archivo corresponda a la propiedad forense adecuada
               </p>
             </div>
-            <span className="text-xs font-mono text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-1 rounded">
+            <span className="text-xs font-mono text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-1 rounded self-start sm:self-auto shrink-0">
               100% Columnas Coincidentes
             </span>
           </div>
@@ -376,17 +376,17 @@ Fiscalía General del Estado de Chihuahua
             </table>
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between pt-4 border-t border-slate-800 gap-3">
             <button
               onClick={() => setCurrentStep(2)}
-              className="text-xs text-slate-400 hover:text-white"
+              className="text-xs text-slate-400 hover:text-white text-center py-2 sm:py-0"
             >
               ← Regresar
             </button>
             <button
               disabled={isProcessing}
               onClick={handleProcessImport}
-              className="px-5 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-600 rounded flex items-center gap-2 transition-colors disabled:opacity-50"
+              className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-600 rounded flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
             >
               {isProcessing ? (
                 <>

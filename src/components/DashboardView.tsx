@@ -8,7 +8,8 @@ import {
   ArrowUpRight, 
   ArrowDownLeft, 
   Users, 
-  Radio
+  Radio,
+  Network
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -94,10 +95,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
         <div className="flex flex-col sm:flex-row gap-2 shrink-0">
           <button
-            onClick={() => onSelectTab('mapa')}
-            className="px-3.5 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-600 rounded flex items-center gap-1.5 transition-colors"
+            onClick={() => onSelectTab('vinculos-pdf')}
+            className="px-3.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded flex items-center gap-1.5 transition-colors shadow-sm"
           >
-            <MapPin className="w-3.5 h-3.5" />
+            <Network className="w-3.5 h-3.5" />
+            <span>Resultados de PDFs (UAYC/i2)</span>
+          </button>
+          <button
+            onClick={() => onSelectTab('mapa')}
+            className="px-3.5 py-2 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded flex items-center gap-1.5 transition-colors"
+          >
+            <MapPin className="w-3.5 h-3.5 text-blue-400" />
             <span>Ver Mapa en Vivo</span>
           </button>
           <button
@@ -110,7 +118,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Tarjetas de Métricas Principales (KPIs) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-slate-900 border border-slate-800 p-4 rounded">
           <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
             <span>Total Registros Sábana</span>
