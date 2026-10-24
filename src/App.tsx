@@ -14,7 +14,6 @@ import { ImportWizardView } from './components/ImportWizardView';
 import { RecordsExplorerView } from './components/RecordsExplorerView';
 import { NumberAnalysisView } from './components/NumberAnalysisView';
 import { ComparatorView } from './components/ComparatorView';
-import { NetworkGraphView } from './components/NetworkGraphView';
 import { GoogleMapsAntennasView } from './components/GoogleMapsAntennasView';
 import { LabelsManagementView } from './components/LabelsManagementView';
 import { ReportsView } from './components/ReportsView';
@@ -22,10 +21,9 @@ import { ArchitectureView } from './components/ArchitectureView';
 import { PdfAnalysisResultsView } from './components/PdfAnalysisResultsView';
 import { QuickLabelModal } from './components/QuickLabelModal';
 import { NewCaseModal } from './components/NewCaseModal';
-import { ThemeProvider, useAppTheme } from './context/ThemeContext';
+import { LayoutDashboard, Network, MapPin, Table, Menu } from 'lucide-react';
 
-function AppContent() {
-  const { theme, themeConfig } = useAppTheme();
+export default function App() {
   const [currentTab, setCurrentTab] = useState<NavTabId>('panel');
   const [cases, setCases] = useState<InvestigationCase[]>(() => storageService.getCases());
   const [activeCaseId, setActiveCaseId] = useState<string>(() => storageService.getActiveCaseId());
@@ -97,26 +95,15 @@ function AppContent() {
     registros: 'Explorador Forense',
     numero: 'Análisis por Número',
     comparador: 'Cruce & Co-localización',
-    vinculos: 'Red de Vínculos (Grafo Táctico)',
-    mapa: 'Mapa de Antenas (Google Maps)',
+    mapa: 'Mapa de Antenas (Leaflet / Satelital)',
     etiquetas: 'Etiquetado Manual',
     reportes: 'Dictámenes Periciales',
     arquitectura: 'Arquitectura & Firestore'
   };
 
   return (
-<<<<<<< HEAD
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
 
-=======
-    <div 
-      className="flex flex-col h-screen w-screen overflow-hidden transition-colors duration-200"
-      style={{
-        backgroundColor: themeConfig.bgMain,
-        color: themeConfig.textPrimary
-      }}
-    >
->>>>>>> 06732813ef7521e9baace9aa7cb685d24da0a604
       {/* Barra Superior Institucional (Top Bar Contract) */}
       <TopBar
         activeCase={activeCase}
@@ -139,10 +126,7 @@ function AppContent() {
         />
 
         {/* Viewport de Contenido */}
-        <main 
-          className="flex-1 overflow-y-auto transition-colors duration-200"
-          style={{ backgroundColor: themeConfig.bgMain }}
-        >
+        <main className="flex-1 overflow-y-auto bg-slate-950 pb-16 md:pb-0">
           {currentTab === 'panel' && (
             <DashboardView
               activeCase={activeCase}
@@ -214,16 +198,6 @@ function AppContent() {
               towers={towers}
               labels={labels}
               onNavigateToMap={() => setCurrentTab('mapa')}
-            />
-          )}
-
-          {currentTab === 'vinculos' && (
-            <NetworkGraphView
-              records={records}
-              labels={labels}
-              activeCase={activeCase}
-              onOpenLabelModal={(phone) => setQuickLabelPhone(phone)}
-              onNavigateToNumberAnalysis={handleNavigateToNumberAnalysis}
             />
           )}
 
@@ -345,13 +319,5 @@ function AppContent() {
         </button>
       </nav>
     </div>
-  );
-}
-
-export default function App() {
-  return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
   );
 }
