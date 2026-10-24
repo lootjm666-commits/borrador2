@@ -10,8 +10,7 @@ import {
   Tags, 
   FileText, 
   Layers,
-  Network,
-  X
+  Network
 } from 'lucide-react';
 import { InvestigationCase } from '../types/telecom';
 import { BuhueLogo } from './BuhueLogo';
@@ -24,6 +23,7 @@ export type NavTabId =
   | 'registros'
   | 'numero'
   | 'comparador'
+  | 'vinculos'
   | 'mapa'
   | 'etiquetas'
   | 'reportes'
@@ -58,6 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'registros' as NavTabId, label: 'Explorador Forense', icon: Table, count: totalRecords },
     { id: 'numero' as NavTabId, label: 'Análisis por Número', icon: PhoneCall },
     { id: 'comparador' as NavTabId, label: 'Cruce & Co-localización', icon: GitCompare },
+    { id: 'vinculos' as NavTabId, label: 'Red de Vínculos', icon: Network, hint: 'Grafo' },
     { id: 'mapa' as NavTabId, label: 'Mapa de Antenas', icon: MapPin, hint: 'Google Maps' },
     { id: 'etiquetas' as NavTabId, label: 'Etiquetado Manual', icon: Tags },
     { id: 'reportes' as NavTabId, label: 'Dictámenes Periciales', icon: FileText },

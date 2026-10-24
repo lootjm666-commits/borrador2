@@ -14,6 +14,7 @@ import { ImportWizardView } from './components/ImportWizardView';
 import { RecordsExplorerView } from './components/RecordsExplorerView';
 import { NumberAnalysisView } from './components/NumberAnalysisView';
 import { ComparatorView } from './components/ComparatorView';
+import { NetworkGraphView } from './components/NetworkGraphView';
 import { GoogleMapsAntennasView } from './components/GoogleMapsAntennasView';
 import { LabelsManagementView } from './components/LabelsManagementView';
 import { ReportsView } from './components/ReportsView';
@@ -21,9 +22,10 @@ import { ArchitectureView } from './components/ArchitectureView';
 import { PdfAnalysisResultsView } from './components/PdfAnalysisResultsView';
 import { QuickLabelModal } from './components/QuickLabelModal';
 import { NewCaseModal } from './components/NewCaseModal';
-import { LayoutDashboard, Network, MapPin, Table, Menu } from 'lucide-react';
+import { ThemeProvider, useAppTheme } from './context/ThemeContext';
 
-export default function App() {
+function AppContent() {
+  const { theme, themeConfig } = useAppTheme();
   const [currentTab, setCurrentTab] = useState<NavTabId>('panel');
   const [cases, setCases] = useState<InvestigationCase[]>(() => storageService.getCases());
   const [activeCaseId, setActiveCaseId] = useState<string>(() => storageService.getActiveCaseId());
@@ -102,6 +104,7 @@ export default function App() {
     registros: 'Explorador Forense',
     numero: 'Análisis por Número',
     comparador: 'Cruce & Co-localización',
+    vinculos: 'Red de Vínculos (Grafo Táctico)',
     mapa: 'Mapa de Antenas (Google Maps)',
     etiquetas: 'Etiquetado Manual',
     reportes: 'Dictámenes Periciales',
@@ -109,25 +112,13 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
-      {/* Banner de Aviso de Cuota de Google Maps Platform */}
-      {gmpQuotaExceeded && (
-        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
-          <span>
-            Google Maps Platform quota reached. If you are the app owner, visit{' '}
-            <a
-              href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline font-semibold text-amber-950 hover:text-amber-800"
-            >
-              maps developer site
-            </a>{' '}
-            for instructions to update your account.
-          </span>
-        </div>
-      )}
-
+    <div 
+      className="flex flex-col h-screen w-screen overflow-hidden transition-colors duration-200"
+      style={{
+        backgroundColor: themeConfig.bgMain,
+        color: themeConfig.textPrimary
+      }}
+    >
       {/* Barra Superior Institucional (Top Bar Contract) */}
       <TopBar
         activeCase={activeCase}
@@ -150,7 +141,10 @@ export default function App() {
         />
 
         {/* Viewport de Contenido */}
-        <main className="flex-1 overflow-y-auto bg-slate-950 pb-16 md:pb-0">
+        <main 
+          className="flex-1 overflow-y-auto transition-colors duration-200"
+          style={{ backgroundColor: themeConfig.bgMain }}
+        >
           {currentTab === 'panel' && (
             <DashboardView
               activeCase={activeCase}
@@ -222,6 +216,16 @@ export default function App() {
               towers={towers}
               labels={labels}
               onNavigateToMap={() => setCurrentTab('mapa')}
+            />
+          )}
+
+          {currentTab === 'vinculos' && (
+            <NetworkGraphView
+              records={records}
+              labels={labels}
+              activeCase={activeCase}
+              onOpenLabelModal={(phone) => setQuickLabelPhone(phone)}
+              onNavigateToNumberAnalysis={handleNavigateToNumberAnalysis}
             />
           )}
 
@@ -343,5 +347,13 @@ export default function App() {
         </button>
       </nav>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
