@@ -2,11 +2,12 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * Módulo de Análisis Geoespacial y Cartografía Forense de Celdas Telefónicas
- * Incluye visor cartográfico vectorial táctico autónomo (offline) y soporte opcional para Google Maps.
+ * Basado en Leaflet (con capas Satelital, CartoDB Dark Matter y OpenStreetMap)
+ * y Visor Vectorial GIS Táctico Autónomo. Sin restricciones de cuota ni APIs externas.
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
+import L from 'leaflet';
 import { CallDetailRecord, CellTower, PhoneLabel } from '../types/telecom';
 import { 
   Play, 
@@ -24,9 +25,11 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
-  Key,
   Shield,
-  Info
+  Satellite,
+  SunMedium,
+  Moon,
+  Crosshair
 } from 'lucide-react';
 
 interface GoogleMapsAntennasViewProps {
@@ -38,7 +41,8 @@ interface GoogleMapsAntennasViewProps {
   onOpenLabelModal: (phone: string) => void;
 }
 
-// Bounding Box para el mapeo geoespacial de Ciudad Juárez, Chihuahua
+// Bounding Box y centro de Ciudad Juárez, Chihuahua
+const JUAREZ_CENTER: [number, number] = [31.6904, -106.4245];
 const JUAREZ_BOUNDS = {
   minLat: 31.5500,
   maxLat: 31.8100,
@@ -46,121 +50,57 @@ const JUAREZ_BOUNDS = {
   maxLng: -106.2500
 };
 
-// Subcomponente para renderizar polilíneas de ruta y conos de azimut en Google Maps cuando esté activo
-const MapOverlaysRenderer: React.FC<{
-  towers: CellTower[];
-  showAzimuthCones: boolean;
-  routeRecords: CallDetailRecord[];
-  currentPlaybackStep: number;
-  selectedTower: CellTower | null;
-}> = ({ towers, showAzimuthCones, routeRecords, currentPlaybackStep, selectedTower }) => {
-  const map = useMap();
-  const polygonsRef = useRef<google.maps.Polygon[]>([]);
-  const polylineRef = useRef<google.maps.Polyline | null>(null);
+// Definición de capas base de mapas para Leaflet
+type MapLayerType = 'satellite' | 'dark' | 'streets';
 
-  const computeDestinationPoint = (
-    lat: number,
-    lng: number,
-    distanceMeters: number,
-    bearingDegrees: number
-  ) => {
-    const R = 6371000;
-    const d = distanceMeters;
-    const brng = (bearingDegrees * Math.PI) / 180;
-    const lat1 = (lat * Math.PI) / 180;
-    const lon1 = (lng * Math.PI) / 180;
+const MAP_TILE_CONFIGS: Record<MapLayerType, { url: string; attribution: string; maxZoom: number; name: string }> = {
+  satellite: {
+    name: 'Satelital Esri',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri &mdash; High-Resolution Imagery',
+    maxZoom: 19
+  },
+  dark: {
+    name: 'Táctico Oscuro',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap &copy; CARTO Dark Matter',
+    maxZoom: 20
+  },
+  streets: {
+    name: 'Callejero OSM',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19
+  }
+};
 
-    const lat2 = Math.asin(
-      Math.sin(lat1) * Math.cos(d / R) +
-        Math.cos(lat1) * Math.sin(d / R) * Math.cos(brng)
+/**
+ * Cálculo geodésico de punto de destino dado azimut y distancia en metros
+ */
+const computeDestinationPoint = (
+  lat: number,
+  lng: number,
+  distanceMeters: number,
+  bearingDegrees: number
+): [number, number] => {
+  const R = 6371000;
+  const d = distanceMeters;
+  const brng = (bearingDegrees * Math.PI) / 180;
+  const lat1 = (lat * Math.PI) / 180;
+  const lon1 = (lng * Math.PI) / 180;
+
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(d / R) +
+      Math.cos(lat1) * Math.sin(d / R) * Math.cos(brng)
+  );
+  const lon2 =
+    lon1 +
+    Math.atan2(
+      Math.sin(brng) * Math.sin(d / R) * Math.cos(lat1),
+      Math.cos(d / R) - Math.sin(lat1) * Math.sin(lat2)
     );
-    const lon2 =
-      lon1 +
-      Math.atan2(
-        Math.sin(brng) * Math.sin(d / R) * Math.cos(lat1),
-        Math.cos(d / R) - Math.sin(lat1) * Math.sin(lat2)
-      );
 
-    return {
-      lat: (lat2 * 180) / Math.PI,
-      lng: (lon2 * 180) / Math.PI
-    };
-  };
-
-  useEffect(() => {
-    if (!map || typeof google === 'undefined') return;
-
-    polygonsRef.current.forEach(p => p.setMap(null));
-    polygonsRef.current = [];
-
-    if (!showAzimuthCones) return;
-
-    towers.forEach(tower => {
-      const isSelected = selectedTower?.id === tower.id;
-      const center = { lat: tower.latitude, lng: tower.longitude };
-      const beamWidth = tower.beamWidth || 65;
-      const range = tower.rangeMeters || 1200;
-      const startAngle = tower.azimuth - beamWidth / 2;
-      const endAngle = tower.azimuth + beamWidth / 2;
-
-      const path = [center];
-      const steps = 12;
-      for (let i = 0; i <= steps; i++) {
-        const currentAngle = startAngle + (i / steps) * (endAngle - startAngle);
-        path.push(computeDestinationPoint(center.lat, center.lng, range, currentAngle));
-      }
-      path.push(center);
-
-      const polygon = new google.maps.Polygon({
-        paths: path,
-        strokeColor: isSelected ? '#F59E0B' : '#3B82F6',
-        strokeOpacity: isSelected ? 0.9 : 0.6,
-        strokeWeight: isSelected ? 2 : 1,
-        fillColor: isSelected ? '#F59E0B' : '#3B82F6',
-        fillOpacity: isSelected ? 0.35 : 0.15,
-        map
-      });
-
-      polygonsRef.current.push(polygon);
-    });
-
-    return () => {
-      polygonsRef.current.forEach(p => p.setMap(null));
-    };
-  }, [map, towers, showAzimuthCones, selectedTower]);
-
-  useEffect(() => {
-    if (!map || typeof google === 'undefined') return;
-
-    if (polylineRef.current) {
-      polylineRef.current.setMap(null);
-      polylineRef.current = null;
-    }
-
-    if (routeRecords.length < 2) return;
-
-    const visiblePoints = routeRecords.slice(0, currentPlaybackStep + 1).map(r => ({
-      lat: r.latitude,
-      lng: r.longitude
-    }));
-
-    polylineRef.current = new google.maps.Polyline({
-      path: visiblePoints,
-      geodesic: true,
-      strokeColor: '#EF4444',
-      strokeOpacity: 0.85,
-      strokeWeight: 3.5,
-      map
-    });
-
-    return () => {
-      if (polylineRef.current) {
-        polylineRef.current.setMap(null);
-      }
-    };
-  }, [map, routeRecords, currentPlaybackStep]);
-
-  return null;
+  return [(lat2 * 180) / Math.PI, (lon2 * 180) / Math.PI];
 };
 
 export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
@@ -171,29 +111,17 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
   focusedTowerId,
   onOpenLabelModal
 }) => {
-  // Manejo de clave de Google Maps (si existe en env o guardada manualmente)
-  const envKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
-  const [customKey, setCustomKey] = useState<string>(() => localStorage.getItem('antisec_custom_maps_key') || '');
-  const activeKey = envKey || customKey;
+  // Motor cartográfico activo: 'leaflet' o 'vector-svg'
+  const [mapEngine, setMapEngine] = useState<'leaflet' | 'vector-svg'>('leaflet');
+  const [activeTileLayer, setActiveTileLayer] = useState<MapLayerType>('satellite');
 
-  // Estado del motor de mapa (vectorial táctico por defecto si no hay key válida)
-  const [useGoogleMaps, setUseGoogleMaps] = useState<boolean>(() => Boolean(activeKey && activeKey.trim().length > 10));
-  const [isKeyModalOpen, setIsKeyModalOpen] = useState<boolean>(false);
-  const [keyInputValue, setKeyInputValue] = useState<string>(activeKey);
-  const [googleMapsError, setGoogleMapsError] = useState<string | null>(null);
+  // Referencias para Leaflet
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const leafletMapRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const overlaysGroupRef = useRef<L.LayerGroup | null>(null);
 
-  // Coordenadas centrales de Ciudad Juárez
-  const defaultCenter = { lat: 31.6904, lng: -106.4245 };
-  const [mapCenter, setMapCenter] = useState(defaultCenter);
-  const [mapZoom, setMapZoom] = useState(12);
-
-  // Estados del visor cartográfico táctico autónomo (zoom y paneo)
-  const [tacticalZoom, setTacticalZoom] = useState<number>(1);
-  const [tacticalPan, setTacticalPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-
-  // Estados interactivos forenses
+  // Estados interactivos
   const [showAzimuthCones, setShowAzimuthCones] = useState<boolean>(true);
   const [selectedTower, setSelectedTower] = useState<CellTower | null>(null);
   const [activeNumberForRoute, setActiveNumberForRoute] = useState<string>(selectedTargetPhone);
@@ -201,17 +129,11 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('ALL');
 
-  // Enfoque inicial de antena si se solicita
-  useEffect(() => {
-    if (focusedTowerId) {
-      const t = towers.find(tower => tower.id === focusedTowerId);
-      if (t) {
-        setSelectedTower(t);
-        setMapCenter({ lat: t.latitude, lng: t.longitude });
-        setMapZoom(14);
-      }
-    }
-  }, [focusedTowerId, towers]);
+  // Estados del visor cartográfico táctico vectorial alternativo
+  const [tacticalZoom, setTacticalZoom] = useState<number>(1);
+  const [tacticalPan, setTacticalPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Lista de fechas únicas en la sábana
   const availableDates = useMemo(() => {
@@ -224,7 +146,7 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
     return records.filter(r => r.date === selectedDateFilter);
   }, [records, selectedDateFilter]);
 
-  // Registros de la ruta activa
+  // Registros de la ruta activa del investigado
   const targetRouteRecords = useMemo(() => {
     const clean = activeNumberForRoute.replace(/\D/g, '');
     return filteredRecords
@@ -232,7 +154,7 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
       .sort((a, b) => a.timestamp - b.timestamp);
   }, [filteredRecords, activeNumberForRoute]);
 
-  // Estadísticas por antena
+  // Estadísticas de conexión por antena
   const towerConnectionStats = useMemo(() => {
     const map: Record<string, { total: number; numbers: Set<string>; lastTime: string }> = {};
     filteredRecords.forEach(r => {
@@ -253,6 +175,19 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
     return filteredRecords.filter(r => r.towerId === selectedTower.id);
   }, [selectedTower, filteredRecords]);
 
+  // Enfoque inicial de antena si se solicita desde otra vista
+  useEffect(() => {
+    if (focusedTowerId) {
+      const t = towers.find(tower => tower.id === focusedTowerId);
+      if (t) {
+        setSelectedTower(t);
+        if (leafletMapRef.current) {
+          leafletMapRef.current.flyTo([t.latitude, t.longitude], 14, { duration: 1 });
+        }
+      }
+    }
+  }, [focusedTowerId, towers]);
+
   // Temporizador de reproducción paso a paso
   useEffect(() => {
     let timer: any;
@@ -270,7 +205,266 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
     return () => clearInterval(timer);
   }, [isPlayingRoute, targetRouteRecords]);
 
-  // Funciones de transformación de coordenadas geográficas a SVG
+  // 1. Inicialización de Leaflet
+  useEffect(() => {
+    if (mapEngine !== 'leaflet' || !mapContainerRef.current) return;
+
+    if (!leafletMapRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        center: JUAREZ_CENTER,
+        zoom: 12,
+        minZoom: 9,
+        maxZoom: 19,
+        zoomControl: false
+      });
+
+      // Controles de zoom abajo a la derecha
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      // Capa base
+      const cfg = MAP_TILE_CONFIGS[activeTileLayer];
+      const tile = L.tileLayer(cfg.url, {
+        attribution: cfg.attribution,
+        maxZoom: cfg.maxZoom,
+        subdomains: activeTileLayer === 'dark' ? 'abcd' : 'abc'
+      }).addTo(map);
+      tileLayerRef.current = tile;
+
+      // Grupo de capas de conos, torres y polilíneas
+      const overlays = L.layerGroup().addTo(map);
+      overlaysGroupRef.current = overlays;
+
+      leafletMapRef.current = map;
+
+      // Invalidate size después del render inicial
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 150);
+    }
+
+    return () => {
+      // Defer cleanup or leave instance intact when staying in view
+    };
+  }, [mapEngine]);
+
+  // 2. Cambio de capa base en Leaflet (Satelital / Dark / Streets)
+  useEffect(() => {
+    if (!leafletMapRef.current) return;
+    const map = leafletMapRef.current;
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+
+    const cfg = MAP_TILE_CONFIGS[activeTileLayer];
+    const newTile = L.tileLayer(cfg.url, {
+      attribution: cfg.attribution,
+      maxZoom: cfg.maxZoom,
+      subdomains: activeTileLayer === 'dark' ? 'abcd' : 'abc'
+    }).addTo(map);
+
+    tileLayerRef.current = newTile;
+  }, [activeTileLayer]);
+
+  // 3. Renderizado de Elementos en Leaflet (Antenas, Conos y Rutas)
+  useEffect(() => {
+    if (!leafletMapRef.current || !overlaysGroupRef.current) return;
+    const group = overlaysGroupRef.current;
+    group.clearLayers();
+
+    // A. Conos de Azimut Sectoriales
+    if (showAzimuthCones) {
+      towers.forEach(tower => {
+        const isSelected = selectedTower?.id === tower.id;
+        const center: [number, number] = [tower.latitude, tower.longitude];
+        const beamWidth = tower.beamWidth || 65;
+        const range = tower.rangeMeters || 1200;
+        const startAngle = tower.azimuth - beamWidth / 2;
+        const endAngle = tower.azimuth + beamWidth / 2;
+
+        const pathCoords: [number, number][] = [center];
+        const steps = 12;
+        for (let i = 0; i <= steps; i++) {
+          const currentAngle = startAngle + (i / steps) * (endAngle - startAngle);
+          pathCoords.push(computeDestinationPoint(center[0], center[1], range, currentAngle));
+        }
+        pathCoords.push(center);
+
+        const sectorPolygon = L.polygon(pathCoords, {
+          color: isSelected ? '#F59E0B' : '#3B82F6',
+          weight: isSelected ? 2 : 1,
+          opacity: isSelected ? 0.9 : 0.6,
+          fillColor: isSelected ? '#F59E0B' : '#3B82F6',
+          fillOpacity: isSelected ? 0.35 : 0.15
+        });
+
+        sectorPolygon.on('click', () => {
+          setSelectedTower(tower);
+        });
+
+        sectorPolygon.addTo(group);
+      });
+    }
+
+    // B. Polilínea de la Ruta Activa
+    if (targetRouteRecords.length > 1) {
+      const visibleRoute = targetRouteRecords.slice(0, currentStep + 1);
+      const latLngs: [number, number][] = visibleRoute.map(r => [r.latitude, r.longitude]);
+
+      const polyline = L.polyline(latLngs, {
+        color: '#EF4444',
+        weight: 3.5,
+        opacity: 0.9,
+        dashArray: '8, 6',
+        lineCap: 'round',
+        lineJoin: 'round'
+      });
+      polyline.addTo(group);
+    }
+
+    // C. Marcadores de Antenas Celulares
+    towers.forEach(tower => {
+      const stats = towerConnectionStats[tower.id] || { total: 0, numbers: new Set() };
+      const isSelected = selectedTower?.id === tower.id;
+      const count = stats.total;
+
+      const bgColor = isSelected
+        ? '#F59E0B'
+        : count > 50
+        ? '#DC2626'
+        : count > 15
+        ? '#2563EB'
+        : '#475569';
+
+      const iconHtml = `
+        <div style="display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%); cursor: pointer;">
+          <div style="
+            width: ${isSelected ? '32px' : '26px'};
+            height: ${isSelected ? '32px' : '26px'};
+            border-radius: 9999px;
+            background-color: ${bgColor};
+            border: 2px solid #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+            transition: transform 0.2s;
+          ">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="2"></circle>
+              <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path>
+            </svg>
+          </div>
+          <div style="
+            margin-top: 2px;
+            background-color: rgba(3, 7, 18, 0.92);
+            border: 1px solid #334155;
+            color: #FFFFFF;
+            font-size: 10px;
+            font-family: monospace;
+            font-weight: bold;
+            padding: 1px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+          ">
+            ${tower.name.split('-')[0].trim()} (${count})
+          </div>
+        </div>
+      `;
+
+      const markerIcon = L.divIcon({
+        className: 'antenna-leaflet-marker',
+        html: iconHtml,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0]
+      });
+
+      const marker = L.marker([tower.latitude, tower.longitude], {
+        icon: markerIcon,
+        title: `${tower.name} (${count} eventos)`
+      });
+
+      marker.on('click', () => {
+        setSelectedTower(tower);
+      });
+
+      marker.addTo(group);
+    });
+
+    // D. Marcador del Paso Actual de la Ruta
+    if (targetRouteRecords.length > 0 && targetRouteRecords[currentStep]) {
+      const activeRecord = targetRouteRecords[currentStep];
+
+      const stepIconHtml = `
+        <div style="display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%);">
+          <div style="
+            width: 32px;
+            height: 32px;
+            border-radius: 9999px;
+            background-color: #DC2626;
+            border: 2px solid #FFFFFF;
+            color: #FFFFFF;
+            font-weight: 800;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 18px rgba(220, 38, 38, 0.9);
+          ">
+            ${currentStep + 1}
+          </div>
+          <div style="
+            margin-top: 3px;
+            background-color: #991B1B;
+            border: 1px solid #F87171;
+            color: #FFFFFF;
+            font-size: 9px;
+            font-family: monospace;
+            font-weight: bold;
+            padding: 1px 6px;
+            border-radius: 3px;
+            white-space: nowrap;
+          ">
+            ${activeRecord.time} · ${activeRecord.durationSeconds}s
+          </div>
+        </div>
+      `;
+
+      const stepIcon = L.divIcon({
+        className: 'route-step-marker',
+        html: stepIconHtml,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0]
+      });
+
+      const stepMarker = L.marker([activeRecord.latitude, activeRecord.longitude], {
+        icon: stepIcon,
+        zIndexOffset: 1000
+      });
+
+      stepMarker.addTo(group);
+    }
+  }, [towers, showAzimuthCones, selectedTower, targetRouteRecords, currentStep, towerConnectionStats]);
+
+  // Centrar Leaflet al seleccionar antena o paso de ruta
+  useEffect(() => {
+    if (!leafletMapRef.current) return;
+    if (selectedTower) {
+      leafletMapRef.current.panTo([selectedTower.latitude, selectedTower.longitude], { animate: true });
+    }
+  }, [selectedTower]);
+
+  // Re-ajustar tamaño de Leaflet si cambia el tamaño o panel
+  useEffect(() => {
+    if (leafletMapRef.current) {
+      setTimeout(() => {
+        leafletMapRef.current?.invalidateSize();
+      }, 200);
+    }
+  }, [selectedTower, mapEngine]);
+
+  // Funciones de proyección para el Visor Vectorial SVG Alternativo
   const projectCoords = (lat: number, lng: number, width: number = 1000, height: number = 800) => {
     const { minLat, maxLat, minLng, maxLng } = JUAREZ_BOUNDS;
     const x = ((lng - minLng) / (maxLng - minLng)) * width;
@@ -278,7 +472,6 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
     return { x, y };
   };
 
-  // Generador de arco SVG para los conos de azimut sectoriales
   const generateAzimuthSectorPath = (
     centerX: number,
     centerY: number,
@@ -286,7 +479,6 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
     azimuthDeg: number,
     beamWidthDeg: number = 65
   ) => {
-    // En SVG: 0° es norte (hacia arriba, y negativo)
     const startAngle = (azimuthDeg - beamWidthDeg / 2 - 90) * (Math.PI / 180);
     const endAngle = (azimuthDeg + beamWidthDeg / 2 - 90) * (Math.PI / 180);
 
@@ -296,90 +488,92 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
     const y2 = centerY + radius * Math.sin(endAngle);
 
     const largeArcFlag = beamWidthDeg > 180 ? 1 : 0;
-
     return `M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
-  };
-
-  // Manejadores de arrastre y paneo del mapa táctico
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - tacticalPan.x, y: e.clientY - tacticalPan.y });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setTacticalPan({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
-    });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleSaveCustomKey = () => {
-    const trimmed = keyInputValue.trim();
-    setCustomKey(trimmed);
-    localStorage.setItem('antisec_custom_maps_key', trimmed);
-    if (trimmed.length > 10) {
-      setUseGoogleMaps(true);
-      setGoogleMapsError(null);
-    } else {
-      setUseGoogleMaps(false);
-    }
-    setIsKeyModalOpen(false);
   };
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] overflow-hidden bg-slate-950 select-none">
-      {/* Barra Superior de Control Geoespacial */}
-      <div className="bg-slate-900 border-b border-slate-800 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-white font-semibold">
-            <Radio className="w-4 h-4 text-blue-400" />
-            <span>Cartografía Forense Juárez</span>
+      {/* Barra Superior de Control Geoespacial (Leaflet y Forense) */}
+      <div className="bg-slate-900 border-b border-slate-800 px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="flex items-center gap-2 text-white font-semibold whitespace-nowrap">
+            <Radio className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="hidden sm:inline">Cartografía Forense Juárez</span>
+            <span className="sm:hidden">Celdas Juárez</span>
           </div>
 
+          {/* Selector de Motor de Mapa */}
           <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 p-0.5 rounded text-[11px] font-mono">
             <button
-              onClick={() => {
-                setUseGoogleMaps(false);
-                setGoogleMapsError(null);
-              }}
-              className={`px-2 py-0.5 rounded transition-colors ${
-                !useGoogleMaps
+              onClick={() => setMapEngine('leaflet')}
+              className={`px-2.5 py-1 rounded transition-colors flex items-center gap-1.5 ${
+                mapEngine === 'leaflet'
                   ? 'bg-blue-600 text-white font-bold'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Visor Táctico GIS (Autónomo)
+              <span>Leaflet</span>
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1 rounded border border-emerald-500/30">Libre</span>
             </button>
             <button
-              onClick={() => {
-                if (!activeKey) {
-                  setIsKeyModalOpen(true);
-                } else {
-                  setUseGoogleMaps(true);
-                }
-              }}
-              className={`px-2 py-0.5 rounded transition-colors flex items-center gap-1 ${
-                useGoogleMaps
+              onClick={() => setMapEngine('vector-svg')}
+              className={`px-2.5 py-1 rounded transition-colors ${
+                mapEngine === 'vector-svg'
                   ? 'bg-blue-600 text-white font-bold'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <span>Google Maps</span>
-              {!activeKey && <Key className="w-2.5 h-2.5 text-amber-400" />}
+              Visor Táctico SVG
             </button>
           </div>
 
-          <span className="text-slate-700">|</span>
+          {/* Selector de Capas de Leaflet */}
+          {mapEngine === 'leaflet' && (
+            <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 p-0.5 rounded text-[11px] font-mono">
+              <button
+                onClick={() => setActiveTileLayer('satellite')}
+                title="Capa Satelital de Alta Resolución"
+                className={`px-2 py-1 rounded transition-colors flex items-center gap-1 ${
+                  activeTileLayer === 'satellite'
+                    ? 'bg-emerald-700 text-white font-bold shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Satellite className="w-3 h-3" />
+                <span className="hidden sm:inline">Satelital</span>
+              </button>
+              <button
+                onClick={() => setActiveTileLayer('dark')}
+                title="Capa Táctica Oscura (CartoDB Dark Matter)"
+                className={`px-2 py-1 rounded transition-colors flex items-center gap-1 ${
+                  activeTileLayer === 'dark'
+                    ? 'bg-slate-700 text-white font-bold shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Moon className="w-3 h-3" />
+                <span className="hidden sm:inline">Oscuro</span>
+              </button>
+              <button
+                onClick={() => setActiveTileLayer('streets')}
+                title="Capa Callejera de OpenStreetMap"
+                className={`px-2 py-1 rounded transition-colors flex items-center gap-1 ${
+                  activeTileLayer === 'streets'
+                    ? 'bg-blue-700 text-white font-bold shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <SunMedium className="w-3 h-3" />
+                <span className="hidden sm:inline">Calles</span>
+              </button>
+            </div>
+          )}
+
+          <span className="text-slate-700 hidden sm:inline">|</span>
 
           {/* Selector de Fecha */}
           <div className="flex items-center gap-1.5 text-slate-300">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <span>Fecha:</span>
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <select
               value={selectedDateFilter}
               onChange={(e) => {
@@ -388,7 +582,7 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
               }}
               className="bg-slate-950 border border-slate-700 text-xs text-white py-1 px-2 rounded font-mono"
             >
-              <option value="ALL">Todas las fechas registradas</option>
+              <option value="ALL">Todas las fechas</option>
               {availableDates.map(d => (
                 <option key={d} value={d}>{d}</option>
               ))}
@@ -405,13 +599,14 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
             }`}
           >
             {showAzimuthCones ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-            <span>Conos de Azimut ({showAzimuthCones ? 'Visibles' : 'Ocultos'})</span>
+            <span className="hidden md:inline">Azimut ({showAzimuthCones ? 'Visibles' : 'Ocultos'})</span>
+            <span className="md:hidden">Azimut</span>
           </button>
         </div>
 
         {/* Controles de Trazado de Ruta del Investigado */}
-        <div className="flex items-center gap-2">
-          <span className="text-slate-400">Ruta de Interés:</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-slate-400 hidden sm:inline">Ruta:</span>
           <select
             value={activeNumberForRoute}
             onChange={(e) => {
@@ -419,7 +614,7 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
               setCurrentStep(0);
               setIsPlayingRoute(false);
             }}
-            className="bg-slate-950 border border-slate-700 text-xs text-white py-1 px-2 rounded font-mono font-bold"
+            className="bg-slate-950 border border-slate-700 text-xs text-white py-1 px-2 rounded font-mono font-bold max-w-[170px] truncate"
           >
             <option value="656-789-2041">656-789-2041 (Sospechoso 1)</option>
             <option value="656-312-9988">656-312-9988 (Sospechoso 2)</option>
@@ -442,7 +637,7 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
               className="px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded flex items-center gap-1 font-semibold"
             >
               {isPlayingRoute ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-              <span>{isPlayingRoute ? 'Pausar' : 'Reproducir'}</span>
+              <span className="hidden sm:inline">{isPlayingRoute ? 'Pausar' : 'Reproducir'}</span>
             </button>
             <button
               onClick={() => setCurrentStep(prev => Math.min(targetRouteRecords.length - 1, prev + 1))}
@@ -465,96 +660,57 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
           </div>
 
           <span className="font-mono text-slate-400 text-[11px] tabular-nums">
-            Paso {targetRouteRecords.length > 0 ? currentStep + 1 : 0}/{targetRouteRecords.length}
+            {targetRouteRecords.length > 0 ? currentStep + 1 : 0}/{targetRouteRecords.length}
           </span>
         </div>
       </div>
 
       {/* Contenedor Principal del Mapa */}
       <div className="flex-1 relative flex overflow-hidden">
-        {/* VISTA 1: GOOGLE MAPS (Si el usuario configuró clave y está activo) */}
-        {useGoogleMaps && activeKey && !googleMapsError ? (
+        {/* VISTA 1: MOTOR LEAFLET (Satelital, Táctico Oscuro y OSM) */}
+        {mapEngine === 'leaflet' && (
           <div className="flex-1 h-full w-full relative">
-            <APIProvider apiKey={activeKey}>
-              <Map
-                defaultCenter={defaultCenter}
-                defaultZoom={12}
-                center={mapCenter}
-                zoom={mapZoom}
-                mapId="DEMO_MAP_ID"
-                className="w-full h-full"
-                internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
-                disableDefaultUI={false}
-                zoomControl={true}
-                streetViewControl={false}
-                mapTypeControl={true}
-                fullscreenControl={false}
+            <div ref={mapContainerRef} className="w-full h-full z-10" />
+
+            {/* Botón flotante para centrar en Juárez */}
+            <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5">
+              <button
+                onClick={() => {
+                  leafletMapRef.current?.flyTo(JUAREZ_CENTER, 12, { duration: 1 });
+                }}
+                title="Centrar en Ciudad Juárez"
+                className="p-2 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-white rounded shadow-xl backdrop-blur flex items-center gap-1.5 text-xs font-mono"
               >
-                <MapOverlaysRenderer
-                  towers={towers}
-                  showAzimuthCones={showAzimuthCones}
-                  routeRecords={targetRouteRecords}
-                  currentPlaybackStep={currentStep}
-                  selectedTower={selectedTower}
-                />
+                <Crosshair className="w-4 h-4 text-blue-400" />
+                <span className="hidden sm:inline">Centrar Juárez</span>
+              </button>
+            </div>
 
-                {towers.map(tower => {
-                  const stats = towerConnectionStats[tower.id] || { total: 0, numbers: new Set() };
-                  const isSelected = selectedTower?.id === tower.id;
-
-                  return (
-                    <AdvancedMarker
-                      key={tower.id}
-                      position={{ lat: tower.latitude, lng: tower.longitude }}
-                      onClick={() => setSelectedTower(tower)}
-                      title={`${tower.name} (${stats.total} conexiones)`}
-                    >
-                      <div className="flex flex-col items-center cursor-pointer group">
-                        <div className={`p-1.5 rounded-full shadow-lg border transition-transform group-hover:scale-110 ${
-                          isSelected
-                            ? 'bg-amber-500 border-white text-slate-950 scale-110'
-                            : stats.total > 50
-                            ? 'bg-rose-600 border-white text-white'
-                            : stats.total > 15
-                            ? 'bg-blue-600 border-white text-white'
-                            : 'bg-slate-700 border-slate-400 text-slate-200'
-                        }`}>
-                          <Radio className="w-4 h-4" />
-                        </div>
-                        <div className="mt-0.5 bg-slate-950/90 border border-slate-700 text-[10px] text-white px-1.5 py-0.2 rounded whitespace-nowrap font-mono shadow">
-                          {tower.name.split('-')[0].trim()} ({stats.total})
-                        </div>
-                      </div>
-                    </AdvancedMarker>
-                  );
-                })}
-
-                {targetRouteRecords.length > 0 && targetRouteRecords[currentStep] && (
-                  <AdvancedMarker
-                    position={{
-                      lat: targetRouteRecords[currentStep].latitude,
-                      lng: targetRouteRecords[currentStep].longitude
-                    }}
-                    title={`Paso ${currentStep + 1}: ${targetRouteRecords[currentStep].time}`}
-                  >
-                    <div className="bg-rose-600 text-white border-2 border-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-xs shadow-xl animate-bounce">
-                      {currentStep + 1}
-                    </div>
-                  </AdvancedMarker>
-                )}
-              </Map>
-            </APIProvider>
+            {/* Badge de Estado del Motor */}
+            <div className="absolute top-4 right-4 z-20 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded text-[11px] font-mono text-slate-300 shadow-xl flex items-center gap-2 backdrop-blur">
+              <Shield className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">Leaflet v1.9 · Esri Satelital / CartoDB · Sin límites de cuota</span>
+              <span className="sm:hidden">Leaflet Satelital</span>
+            </div>
           </div>
-        ) : (
-          /* VISTA 2: VISOR CARTOGRÁFICO TÁCTICO VECTORIAL GIS (Autónomo / Offline Seguro) */
+        )}
+
+        {/* VISTA 2: VISOR CARTOGRÁFICO TÁCTICO VECTORIAL GIS (Autónomo SVG) */}
+        {mapEngine === 'vector-svg' && (
           <div 
             className="flex-1 h-full w-full relative bg-slate-950 overflow-hidden cursor-grab active:cursor-grabbing"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            onMouseDown={(e) => {
+              setIsDragging(true);
+              setDragStart({ x: e.clientX - tacticalPan.x, y: e.clientY - tacticalPan.y });
+            }}
+            onMouseMove={(e) => {
+              if (!isDragging) return;
+              setTacticalPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+            }}
+            onMouseUp={() => setIsDragging(false)}
+            onMouseLeave={() => setIsDragging(false)}
           >
-            {/* Controles Flotantes de Navegación del Visor Táctico */}
+            {/* Controles Flotantes del Visor Vectorial */}
             <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5 bg-slate-900/90 border border-slate-800 p-1.5 rounded shadow-xl backdrop-blur">
               <button
                 onClick={() => setTacticalZoom(prev => Math.min(prev + 0.25, 3))}
@@ -582,13 +738,6 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
               </button>
             </div>
 
-            {/* Aviso Informativo del Modo Táctico Autónomo */}
-            <div className="absolute top-4 right-4 z-20 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded text-[11px] font-mono text-slate-300 shadow-xl flex items-center gap-2 backdrop-blur">
-              <Shield className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Modo Cartográfico Vectorial Forense · Sin dependencias de API externa</span>
-            </div>
-
-            {/* Lienzo SVG Vectorial Táctico Georreferenciado */}
             <svg
               className="w-full h-full"
               viewBox="0 0 1000 800"
@@ -600,30 +749,24 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
               }}
             >
               <defs>
-                {/* Cuadrícula Táctica de Fondo */}
                 <pattern id="tactical-grid" width="50" height="50" patternUnits="userSpaceOnUse">
                   <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#1e293b" strokeWidth="0.5" strokeOpacity="0.5" />
                   <circle cx="0" cy="0" r="1" fill="#334155" />
                 </pattern>
-
-                {/* Gradiente Cono de Azimut Normal */}
                 <radialGradient id="azimuth-gradient" cx="0%" cy="0%" r="100%">
                   <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.5" />
                   <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.05" />
                 </radialGradient>
-
-                {/* Gradiente Cono de Azimut Seleccionado */}
                 <radialGradient id="azimuth-selected-gradient" cx="0%" cy="0%" r="100%">
                   <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.6" />
                   <stop offset="100%" stopColor="#F59E0B" stopOpacity="0.1" />
                 </radialGradient>
               </defs>
 
-              {/* Fondo y Grilla */}
               <rect width="1000" height="800" fill="#030712" />
               <rect width="1000" height="800" fill="url(#tactical-grid)" />
 
-              {/* Río Bravo / Frontera Internacional (Línea de Norte) */}
+              {/* Río Bravo */}
               <path
                 d="M 50 120 Q 250 150 450 140 T 750 200 T 980 240"
                 fill="none"
@@ -633,39 +776,21 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
                 strokeOpacity="0.7"
               />
               <text x="320" y="130" fill="#3b82f6" fontSize="9" fontFamily="monospace" opacity="0.6">
-                RÍO BRAVO · LÍNEA FRONTERIZA MÉXICO / EE.UU. (EL PASO, TX)
+                RÍO BRAVO · LÍNEA FRONTERIZA MÉXICO / EE.UU.
               </text>
 
-              {/* Vías Principales de Cd. Juárez (Vectores Referenciales) */}
-              {/* Av. 16 de Septiembre / Centro */}
+              {/* Vías urbanas Juárez */}
               <path d="M 280 180 L 450 230" stroke="#334155" strokeWidth="2" strokeOpacity="0.6" />
-              {/* Av. Paseo Triunfo / Lincoln (Pronaf) */}
               <path d="M 400 210 L 520 280" stroke="#334155" strokeWidth="2.5" strokeOpacity="0.6" />
               <text x="460" y="240" fill="#64748b" fontSize="8" fontFamily="monospace">Av. Lincoln (Pronaf)</text>
-              {/* Av. Gómez Morín */}
               <path d="M 500 270 L 680 430" stroke="#334155" strokeWidth="2" strokeOpacity="0.6" />
               <text x="590" y="340" fill="#64748b" fontSize="8" fontFamily="monospace">Av. Gómez Morín</text>
-              {/* Av. de las Torres */}
-              <path d="M 540 430 L 680 580" stroke="#334155" strokeWidth="2" strokeOpacity="0.6" />
-              <text x="610" y="490" fill="#64748b" fontSize="8" fontFamily="monospace">Av. de las Torres</text>
-              {/* Carretera Panamericana / Blvr. Zaragoza */}
-              <path d="M 420 300 L 780 620" stroke="#334155" strokeWidth="2.5" strokeOpacity="0.6" />
-              <text x="710" y="590" fill="#64748b" fontSize="8" fontFamily="monospace">Blvr. Zaragoza / Panamericana</text>
 
-              {/* Etiquetas de Zonas Urbanas */}
-              <text x="90" y="240" fill="#475569" fontSize="10" fontWeight="bold" fontFamily="monospace">ZONA ANAPRA</text>
-              <text x="340" y="200" fill="#475569" fontSize="10" fontWeight="bold" fontFamily="monospace">CENTRO HISTÓRICO</text>
-              <text x="480" y="220" fill="#475569" fontSize="10" fontWeight="bold" fontFamily="monospace">ZONA PRONAF</text>
-              <text x="600" y="300" fill="#475569" fontSize="10" fontWeight="bold" fontFamily="monospace">ZONA COMERCIAL GÓMEZ MORÍN</text>
-              <text x="730" y="520" fill="#475569" fontSize="10" fontWeight="bold" fontFamily="monospace">PARQUE IND. ZARAGOZA</text>
-              <text x="830" y="660" fill="#475569" fontSize="10" fontWeight="bold" fontFamily="monospace">RIBERAS DEL BRAVO</text>
-              <text x="510" y="600" fill="#475569" fontSize="10" fontWeight="bold" fontFamily="monospace">AEROPUERTO CJS</text>
-
-              {/* CAPA 1: CONOS DE AZIMUT (SECTORES DE RADIACIÓN DE ANTENAS) */}
+              {/* Conos de Azimut */}
               {showAzimuthCones && towers.map(tower => {
                 const { x, y } = projectCoords(tower.latitude, tower.longitude);
                 const isSelected = selectedTower?.id === tower.id;
-                const radius = ((tower.rangeMeters || 1400) / 1000) * 45; // Escala proporcional
+                const radius = ((tower.rangeMeters || 1400) / 1000) * 45;
                 const path = generateAzimuthSectorPath(x, y, radius, tower.azimuth, tower.beamWidth || 65);
 
                 return (
@@ -676,12 +801,12 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
                     stroke={isSelected ? '#F59E0B' : '#3B82F6'}
                     strokeWidth={isSelected ? '2' : '1'}
                     strokeOpacity={isSelected ? '0.9' : '0.5'}
-                    className="pointer-events-none transition-all duration-300"
+                    className="pointer-events-none"
                   />
                 );
               })}
 
-              {/* CAPA 2: POLILÍNEA DE RUTA DEL SOSPECHOSO / INVESTIGADO */}
+              {/* Polilínea de Ruta */}
               {targetRouteRecords.length > 1 && (() => {
                 const points = targetRouteRecords.slice(0, currentStep + 1).map(r => {
                   const { x, y } = projectCoords(r.latitude, r.longitude);
@@ -697,12 +822,11 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
                     strokeDasharray="6 3"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="filter drop-shadow-[0_0_8px_rgba(239,68,68,0.7)]"
                   />
                 );
               })()}
 
-              {/* CAPA 3: ANTENAS CELULARES INTERACTIVAS */}
+              {/* Antenas */}
               {towers.map(tower => {
                 const { x, y } = projectCoords(tower.latitude, tower.longitude);
                 const stats = towerConnectionStats[tower.id] || { total: 0, numbers: new Set() };
@@ -713,52 +837,17 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
                     key={`tower-${tower.id}`}
                     transform={`translate(${x}, ${y})`}
                     onClick={() => setSelectedTower(tower)}
-                    className="cursor-pointer group"
+                    className="cursor-pointer"
                   >
-                    {/* Anillo de pulso para antenas activas */}
-                    {stats.total > 0 && (
-                      <circle
-                        r={isSelected ? 18 : 14}
-                        fill="none"
-                        stroke={isSelected ? '#F59E0B' : '#3B82F6'}
-                        strokeWidth="1.5"
-                        strokeOpacity="0.4"
-                        className="animate-ping"
-                      />
-                    )}
-
-                    {/* Nodo central de la torre */}
                     <circle
                       r={isSelected ? 12 : 9}
-                      fill={
-                        isSelected
-                          ? '#F59E0B'
-                          : stats.total > 50
-                          ? '#DC2626'
-                          : stats.total > 15
-                          ? '#2563EB'
-                          : '#475569'
-                      }
+                      fill={isSelected ? '#F59E0B' : stats.total > 50 ? '#DC2626' : stats.total > 15 ? '#2563EB' : '#475569'}
                       stroke="#FFFFFF"
                       strokeWidth={isSelected ? 2.5 : 1.5}
-                      className="transition-transform group-hover:scale-125"
-                    />
-
-                    {/* Etiqueta de la torre */}
-                    <rect
-                      x="-45"
-                      y="14"
-                      width="90"
-                      height="18"
-                      rx="3"
-                      fill="#030712"
-                      fillOpacity="0.85"
-                      stroke="#334155"
-                      strokeWidth="1"
                     />
                     <text
                       x="0"
-                      y="26"
+                      y="24"
                       fill="#FFFFFF"
                       fontSize="9"
                       fontWeight="bold"
@@ -770,51 +859,6 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
                   </g>
                 );
               })}
-
-              {/* CAPA 4: MARCADOR DEL PASO DE RUTA ACTUAL */}
-              {targetRouteRecords.length > 0 && targetRouteRecords[currentStep] && (() => {
-                const activeRecord = targetRouteRecords[currentStep];
-                const { x, y } = projectCoords(activeRecord.latitude, activeRecord.longitude);
-
-                return (
-                  <g transform={`translate(${x}, ${y})`}>
-                    <circle r="16" fill="#EF4444" fillOpacity="0.3" className="animate-ping" />
-                    <circle r="10" fill="#EF4444" stroke="#FFFFFF" strokeWidth="2" />
-                    <text
-                      x="0"
-                      y="4"
-                      fill="#FFFFFF"
-                      fontSize="10"
-                      fontWeight="extrabold"
-                      fontFamily="monospace"
-                      textAnchor="middle"
-                    >
-                      {currentStep + 1}
-                    </text>
-                    <rect
-                      x="-60"
-                      y="-28"
-                      width="120"
-                      height="16"
-                      rx="3"
-                      fill="#991B1B"
-                      stroke="#F87171"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x="0"
-                      y="-17"
-                      fill="#FFFFFF"
-                      fontSize="9"
-                      fontFamily="monospace"
-                      fontWeight="bold"
-                      textAnchor="middle"
-                    >
-                      {activeRecord.time} · {activeRecord.durationSeconds}s
-                    </text>
-                  </g>
-                );
-              })()}
             </svg>
           </div>
         )}
@@ -923,42 +967,6 @@ export const GoogleMapsAntennasView: React.FC<GoogleMapsAntennasViewProps> = ({
           </aside>
         )}
       </div>
-
-      {/* Modal Opcional de Configuración de Clave de Google Maps */}
-      {isKeyModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-lg max-w-md w-full p-6 shadow-2xl">
-            <div className="flex items-center gap-2 mb-3">
-              <Key className="w-5 h-5 text-amber-400" />
-              <h3 className="text-sm font-bold text-white">Configuración Opcional de Google Maps</h3>
-            </div>
-            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-              El visor cartográfico táctico funciona de forma 100% autónoma sin requerir clave externa. Si cuentas con una clave propia de Google Maps Platform, puedes ingresarla aquí para activar las capas satelitales oficiales.
-            </p>
-            <input
-              type="text"
-              placeholder="AIzaSy..."
-              value={keyInputValue}
-              onChange={(e) => setKeyInputValue(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white font-mono mb-4 focus:outline-none focus:border-blue-500"
-            />
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setIsKeyModalOpen(false)}
-                className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
-              >
-                Cerrar (Continuar en Modo Autónomo)
-              </button>
-              <button
-                onClick={handleSaveCustomKey}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded"
-              >
-                Guardar Clave
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
