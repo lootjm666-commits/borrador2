@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, Network, MapPin, Table, Menu } from 'lucide-react';
 import { CallDetailRecord, CellTower, InvestigationCase, PhoneLabel } from './types/telecom';
 import { storageService } from './services/storageService';
 import { TopBar } from './components/TopBar';
