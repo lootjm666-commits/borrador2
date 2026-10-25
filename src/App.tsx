@@ -22,7 +22,6 @@ import { ArchitectureView } from './components/ArchitectureView';
 import { PdfAnalysisResultsView } from './components/PdfAnalysisResultsView';
 import { QuickLabelModal } from './components/QuickLabelModal';
 import { NewCaseModal } from './components/NewCaseModal';
-import { LayoutDashboard, Network, MapPin, Table, Menu } from 'lucide-react';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<NavTabId>('panel');
